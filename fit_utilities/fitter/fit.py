@@ -14,133 +14,22 @@ import sys
 
 sys.path.append('../..')
 from fit_utilities import *
+from fit_utilities.fit_functions.funcs import *
+from fit_utilities.fitter.fit import *
 
-
-    
 ########################################
-
-def par_n_fit(model_name, df, columns, end_fit, n_days, p0=None, moving_average = False,
-                 plot = False, weight = False):
-    
-    end_fit = datetime.datetime.strptime(end_fit, "%Y-%m-%d")
-    start_fit = end_fit - datetime.timedelta(n_days-1)
-    print(start_fit.date(),end_fit.date())
-
-    if moving_average:
-        label_average = moving_average[0]
-        period = moving_average[1]
-        ma_summary = [label_average,period]
-        
-        if label_average == 'uniform':
-            df_averaged = df.loc[:end_fit][columns]\
-                          .rolling(window=period).mean()
-            series = df_averaged.loc[start_fit:end_fit]
-            series = np.round(series, decimals=0) 
-            
-        elif label_average == 'ewm':
-            df_averaged = df.loc[:end_fit][columns]\
-                          .ewm(span=period).mean()
-            series = df_averaged.loc[start_fit:end_fit]
-            series = np.round(series, decimals=0) 
-                     
-        elif label_average == 'wma':
-            weights = np.arange(1,period+1)
-            df_averaged = df.loc[:end_fit][columns].rolling(period)\
-                      .apply(lambda counts: np.dot(counts, weights)/weights.sum(), 
-                             raw=True)
-            series = df_averaged.loc[start_fit:end_fit]
-            series = np.round(series, decimals=0)      
-    else:
-        label_average = False
-        series = df.loc[start_fit:end_fit][columns] 
-        ma_summary = label_average
-        
-    dates_fit = series.index.date
-
-    x_range = np.array([x for x in range(len(series))])
-    y_values = np.array(series)
-    
-    func_fit = map_func[model_name]['fitter']
-    func_plot = map_func[model_name]['plotter']
-    
-    if p0!= None:
-        if weight:
-            sigma = np.array([np.sqrt(n) for n in list(y_values)])
-            par = scipy.optimize.curve_fit(func_fit,  x_range,  y_values, p0, sigma=sigma,absolute_sigma=True
-                                       ,maxfev=1000000)
-        else:
-            par = scipy.optimize.curve_fit(func_fit,  x_range,  y_values, p0
-                                          ,maxfev=1000000)
-    else:   
-        if weight:
-            sigma = np.array([np.sqrt(n) for n in list(y_values)])
-            par = scipy.optimize.curve_fit(func_fit,  x_range,  y_values, sigma=sigma,absolute_sigma=True
-                                       ,maxfev=1000000)
-        else:
-            par = scipy.optimize.curve_fit(func_fit,  x_range,  y_values
-                                          ,maxfev=1000000)
-
-    ddof = len(par[0])
-    
-    if model_name == 'exponential':
-        dT = np.log(2)/par[0][1]
-    else:
-        dT = None
-    
-    pars = par[0]
-    sigma_pars = np.sqrt(np.diag(par[1]))
-    expected_values = func_plot(x_range, pars)
-    chi, p = chisquare(y_values, expected_values,ddof)
-    print(chi, p)
-    
-    if plot:
-    
-        plt.figure(figsize=(6, 4))
-        plt.scatter(x_range, y_values, label='Data')
-        plt.plot(x_range, func_plot(x_range, pars),
-                 label='Fitted function')
-        plt.legend(loc='best')
-        plt.xlabel('day')
-        plt.xticks(x_range, dates_fit,rotation='vertical')
-
-        plt.show()
-        
-    dic = {}
-    dic['parameters_fit'] = pars
-    dic['sigma_pars'] = sigma_pars
-    dic['dT'] = dT
-    dic['fitted_day'] = n_days
-    dic['end_fit'] = end_fit.strftime("%Y-%m-%d")
-    dic['fitted_dates'] = dates_fit
-    dic['fitted_series'] = series
-    dic['moving_average'] = ma_summary
-    dic['chi_2'] = [chi,p]
-    dic['model'] = model_name
-    
-    return dic, x_range, dates_fit, y_values
-
-def plotter(x0,y0, x_val, y_val, x_fit_val = None, y_fit_val = None, show = True):
+def plotter(x_val, y_val, x_fit_val = None, y_fit_val = None):
     
     if isinstance(x_val, list):
         plt.figure(figsize=(12, 8))
-        if show:
-            series = zip(x0, y0, x_val, y_val, x_fit_val, y_fit_val)
-            for x_0, y_0, x, y, x_fit, y_fit in series:
-                plt.scatter(x_0, y_0, label='Data with test')
-#                 plt.scatter(x, y, label='Data')
-                plt.plot(x_fit, y_fit,label='Fitted function')
-                plt.legend(loc='best')
-                plt.xlabel('range')
-            plt.show()
-        else:
-            series = zip(x_val, y_val, x_fit_val, y_fit_val)
-            for x, y, x_fit, y_fit in series:
-                plt.scatter(x, y, label='Data')
-                plt.plot(x_fit, y_fit,
-                         label='Fitted function')
-                plt.legend(loc='best')
-                plt.xlabel('range')
-            plt.show()
+        series = zip(x_val, y_val, x_fit_val, y_fit_val)
+        for x, y, x_fit, y_fit in series:
+            plt.scatter(x, y, label='Data')
+            plt.plot(x_fit, y_fit,
+                     label='Fitted function')
+            plt.legend(loc='best')
+            plt.xlabel('range')
+        plt.show()
 
     else:
         plt.figure(figsize=(12, 8))
@@ -160,8 +49,6 @@ class TableFiltering():
     def __init__(self):
         """ Initialization of the class table filtering: fimple filtering process
         """
-#         if(isinstance(df,pd.DataFrame)):self.df = df.copy()
-    
     def preprocessing(self, df, select = None, cuts = None, return_original=False):
         '''apply filters'''
         if select is not None:
@@ -201,9 +88,296 @@ class TableFiltering():
                         print('{} {} {}'.format(k,comp,cond))
                     else:
                         df = df.query('{} {} {}'.format(k,con[0],con[1:]))
-#             else:
-#                 TypeError('cuts is not a dictionary type')
         if return_original:
             return df, df
         else:        
             return df
+
+class FitterValues():
+    def __init__(self):
+        """ Initialization of the class fitter: Fit y values on x range
+        """
+    
+    def fit(self, model, x_val, y_val, n_previsions, p0=None, plot=True):
+        
+        if isinstance(x_val,list):
+            pass
+        else:
+            x_val = [x_val]
+            y_val = [y_val]
+            
+        dic_list = []
+        x_fitted_list = []
+        y_fitted_list = []
+        y_values_list = []
+        x_values_list = []
+        for x,y in zip(x_val,y_val):
+            pars_fit = scipy.optimize.curve_fit(map_func[model]['get_fit']
+                                           ,x , y, p0)
+            pars = pars_fit[0]
+            sigma_pars = np.sqrt(np.diag(pars_fit[1]))
+            n_days = len(x)
+            ddof = n_days - len(pars)
+            fitted_values = map_func[model]['get_values'](x, pars)
+            chi, p = chisquare(y, fitted_values, ddof)
+
+            all_x = np.array([i for i in range(x[0], x[0] + n_days + n_previsions)])
+            all_y = map_func[model]['get_values'](all_x, pars)
+
+            dic = {}
+            dic['parameters_fit'] = pars
+            dic['sigma_pars'] = sigma_pars
+            dic['fitted_day'] = n_days
+            dic['chi_2'] = {'chi_value':chi, 'p_value':p}
+            dic['model'] = model
+            dic['previsions'] = n_previsions
+            dic['fit_prevs_values'] = all_y
+            dic['fit_prevs_range'] = all_x
+            dic['fit_values'] = y
+            dic['fit_range'] = x
+
+            dic_list.append(dic)
+
+            x_values_list.append(x)
+            y_values_list.append(y)
+            x_fitted_list.append(all_x)
+            y_fitted_list.append(all_y)
+
+        if plot:
+            plotter(x_values_list, y_values_list, x_fitted_list, y_fitted_list)
+
+        return dic_list
+    
+#     def __fit_predict_plot(self, x, y, n_previsions, report = True, plot = True):
+#         print(self.model)
+
+#         return pars
+    
+    def _hidden_func(self, x, y, n_previsions):
+        print(self.model)
+        
+# _ for hidden method
+# __ method that are protected adding the object prefix ahead of the method
+
+from fit_utilities.fit_functions.funcs import *
+from fit_utilities.fitter.fit import *
+
+class FitterTimeSeries(FitterValues,TableFiltering):
+    def __init__(self, df, datetime_columns = None, format_date = "%Y-%m-%d",select=None, cuts = None
+                 , multiseries_on = False):
+        
+        """ Initialization of the class fitter: Fit y values on x range
+        :param df: dataframe
+        :param datetime_columns: column to set as index
+        :type df: pandas dataframe
+        :type datetime_columns: string
+        """
+        if(isinstance(df,pd.DataFrame)):
+            if (select is not None) | (cuts is not None):
+                df = self.preprocessing(df, select, cuts)
+                self.df = df.copy()
+            else:
+                self.df = df.copy()
+        self.df[datetime_columns] = pd.to_datetime(self.df[datetime_columns], format = format_date)
+        self.df.set_index(datetime_columns,inplace = True)
+        self.cuts = cuts
+        self.select = select
+        self.multiseries_on = multiseries_on
+        super().__init__()
+        
+    def __delattr__(self, name):
+        print("deleting {}".format(str(name)))
+        del self.__dict__[name]
+        print("{} deleted".format(str(name)))
+    
+    def fit_time_series(self,columns_analysis= None, start_date= None, end_date= None, n_previsions= 0,
+                        p0 = None, model='linear', plot = True, semilog=False, show_test = True):
+        
+        if isinstance(model, str):
+            pass
+        else:
+            raise(ValueError('the model is not a string'))
+        
+        if columns_analysis == None:
+            ValueError('column analysis is None')
+        
+        df_fit_date = self.df.loc[start_date:end_date]
+        df_all_date = self.df.loc[start_date:None]
+        
+        if len(df_all_date) > len(df_fit_date):
+            extra_values = True
+        else:
+            extra_values = False
+            
+        show = extra_values*show_test
+        if isinstance(columns_analysis, list):
+            pass
+        else:
+            columns_analysis = [columns_analysis]
+            
+        dic_list = []
+        most_update_dic_list = []
+        setting_list = []
+        
+        for col in columns_analysis:
+            if self.multiseries_on:
+                series = np.unique(df_fit_date[str(self.multiseries_on)])
+                y = []
+                y0 = []
+                dates0 = df_all_date[df_all_date[self.multiseries_on] == series[-1]].loc[:, col].index
+                x0 = np.array(np.arange(len(dates0)))
+                for serie in series:
+                    y.append(df_fit_date[df_fit_date[self.multiseries_on] == serie].loc[:, col].values)
+                    y0 = np.array(df_all_date[df_all_date[self.multiseries_on] == serie].loc[:, col].values)
+                    
+                    setting_list.append('{}/{}'.format(col,serie))
+                    most_update_dic_list.append({'x':x0, 'y':y0, 'dates':dates0})
+
+                dates = df_fit_date[df_fit_date[self.multiseries_on] == serie].loc[:, col].index
+                x = [np.array(np.arange(len(dates)))]*len(series)
+                
+            else:
+                dates = df_fit_date.index
+                dates0 = df_all_date.index
+                y = np.array(df_fit_date.loc[:, col])
+                x = np.array(np.arange(len(dates)))
+                x0 = np.array(np.arange(len(dates0)))
+                y0 = np.array(df_all_date.loc[:, col])
+                
+                most_update_dic_list.append({'x':x0, 'y':y0, 'dates':dates0})
+                setting_list.append('{}'.format(col))
+                
+            dic_list.append(self.fit(model,x, y, n_previsions, p0, plot=False))
+       
+        sl_idx = 0
+        for idx in range(len(dic_list)):
+            if plot:
+                plt.figure(figsize=(16, 8))
+            for dic in dic_list[idx]:
+                x_fit = dic['fit_prevs_range']
+                y_fit = dic['fit_prevs_values'] 
+                x_val = dic['fit_range']
+                y_val = dic['fit_values'] 
+                model = dic['model']
+                p_chi2 = dic['chi_2']['p_value']
+                
+                x_0 = most_update_dic_list[sl_idx]['x']
+                y_0 = most_update_dic_list[sl_idx]['y']
+
+                label = '_'.join(setting_list[sl_idx].split('/'))
+                dic['label'] = label
+                
+                if len(x_fit) >= len(x_0):
+                     dates_plot = [(dates[0] + datetime.timedelta(days=xi)).strftime("%Y-%m-%d")\
+                         for xi in range(len(x_fit))]
+                elif len(x_fit) < len(x_0):
+                     dates_plot = [(dates0[0] + datetime.timedelta(days=xi)).strftime("%Y-%m-%d")\
+                         for xi in range(len(x_0))]
+                            
+                dic['dates_plot'] = dates_plot
+                
+                if show:
+                    dic['data_range_plot'] = x_0
+                    dic['data_values_plot'] = y_0
+                else:
+                    dic['data_range_plot'] = x_val
+                    dic['data_values_plot'] = y_val
+                        
+                if plot:
+                    if show:
+                        plt.scatter(x_0, y_0, label='{} Data'.format(setting_list[sl_idx]))
+                    else:
+                         plt.scatter(x_val, y_val, label='{} Data'.format(setting_list[sl_idx]))
+                    plt.plot(x_fit, y_fit, label='{} Fit {} p_chi2 {:.2f}'\
+                             .format(setting_list[sl_idx], model, p_chi2))
+                    plt.xticks([d for d in range(len(dates_plot))],  dates_plot, rotation='vertical', fontsize = 14)
+                    plt.legend(loc='best',fontsize = 12)
+                    plt.title('{}'.format(setting_list[sl_idx].split('/')[0]),fontsize = 16)
+                    plt.xlabel('Day', fontsize = 16)
+                    plt.ylabel('{}'.format(setting_list[sl_idx].split('/')[0]), fontsize = 16)
+                    if len(x_val)< len(dates_plot):
+                        plt.axvline(len(x_val)-1, alpha = 0.5,linewidth=3, ls = '--')
+                    if semilog:
+                        plt.yscale('log')
+                sl_idx += 1
+        plt.show()
+
+        return dic_list
+
+class FitterTimeSeriesComparison(FitterTimeSeries,TableFiltering):
+    def __init__(self, df, datetime_columns = None, format_date = "%Y-%m-%d",select=None, cuts = None
+                 , multiseries_on = False):
+        
+        """ Initialization of the class fitter: Fit y values on x range
+        :param df: dataframe
+        :param datetime_columns: column to set as index
+        :type df: pandas dataframe
+        :type datetime_columns: string
+        """
+        if(isinstance(df,pd.DataFrame)):
+            if (select is not None) | (cuts is not None):
+                df = self.preprocessing(df, select, cuts)
+                self.df = df.copy()
+            else:
+                self.df = df.copy()
+#         df.apply(lambda x: x['data'].split('T')[0], axis = 1)
+#         self.df[datetime_columns] = self.df[datetime_columns].apply(lambda x: x.split('T')[0])
+        self.df[datetime_columns] = pd.to_datetime(self.df[datetime_columns], format = format_date)
+        self.df.set_index(datetime_columns,inplace = True)
+        self.cuts = cuts
+        self.select = select
+        self.multiseries_on = multiseries_on
+        
+    def fit_time_series_comparison(self,columns_analysis= None, start_date= None, end_date= None, n_previsions= 0,
+                        p0 = None, model='linear', plot = True, semilog=False, show_test = True):
+        
+        if isinstance(model, list):
+            pass
+        else:
+            model = [model]
+        if isinstance(columns_analysis, list):
+            pass
+        else:
+            columns_analysis = [columns_analysis]
+            
+        for col in columns_analysis:
+            
+            dic_list = []
+            for mod in model:
+                print(mod)
+                update = self.fit_time_series(columns_analysis=col, start_date=start_date
+                                     , end_date=end_date, n_previsions=n_previsions,
+                                    p0=p0, model=mod, plot=False, semilog=semilog, show_test=show_test)
+                dic_list.extend(update[0])
+            if plot:
+                plt.figure(figsize=(16, 8))
+                for dic in dic_list:
+                    x_fit = dic['fit_prevs_range']
+                    y_fit = dic['fit_prevs_values'] 
+                    model_label = dic['model']
+                    p_chi2 = dic['chi_2']['p_value']
+
+                    label = dic['label'] 
+                    x_val = dic['data_range_plot']
+                    y_val = dic['data_values_plot'] 
+                    dates_plot = dic['dates_plot'] 
+
+                    plt.plot(x_fit, y_fit, label='{} Fit {} p_chi2 {:.2f}'\
+                             .format(label, model_label, p_chi2))
+                    if self.multiseries_on:
+                        plt.scatter(x_val, y_val, label='{} Data'.format(label)) 
+                if not(self.multiseries_on):       
+                    plt.scatter(x_val, y_val, label='{} Data'.format(label))    
+                    
+                plt.xticks([d for d in range(len(dates_plot))],  dates_plot, rotation='vertical', fontsize = 14)
+                plt.legend(loc='best',fontsize = 12)
+                plt.title('{}'.format(label),fontsize = 16)
+                plt.xlabel('Day', fontsize = 16)
+                plt.ylabel('{}'.format(label), fontsize = 16)
+                if len(x_val)< len(dates_plot):
+                    plt.axvline(len(x_val)-1, alpha = 0.5,linewidth=3, ls = '--')
+                if semilog:
+                    plt.yscale('log')
+                plt.show()
+
+        return dic_list
