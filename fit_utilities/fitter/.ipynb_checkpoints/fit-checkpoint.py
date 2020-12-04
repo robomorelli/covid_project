@@ -159,8 +159,6 @@ class FitterValues():
 # _ for hidden method
 # __ method that are protected adding the object prefix ahead of the method
 
-from fit_utilities.fit_functions.funcs import *
-from fit_utilities.fitter.fit import *
 
 class FitterTimeSeries(FitterValues,TableFiltering):
     def __init__(self, df, datetime_columns = None, format_date = "%Y-%m-%d",select=None, cuts = None
@@ -314,6 +312,7 @@ class FitterTimeSeriesComparison(FitterTimeSeries,TableFiltering):
         :type df: pandas dataframe
         :type datetime_columns: string
         """
+#         super().__init__(self, df)
         if(isinstance(df,pd.DataFrame)):
             if (select is not None) | (cuts is not None):
                 df = self.preprocessing(df, select, cuts)
@@ -327,6 +326,7 @@ class FitterTimeSeriesComparison(FitterTimeSeries,TableFiltering):
         self.cuts = cuts
         self.select = select
         self.multiseries_on = multiseries_on
+
         
     def fit_time_series_comparison(self,columns_analysis= None, start_date= None, end_date= None, n_previsions= 0,
                         p0 = None, model='linear', plot = True, semilog=False, show_test = True):
