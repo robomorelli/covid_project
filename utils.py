@@ -1,15 +1,11 @@
 import pandas as pd
 import numpy as np
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import scipy
 from scipy.optimize import leastsq
 import datetime
-from matplotlib import pyplot
-from sklearn.linear_model import LinearRegression
 from scipy.stats import chisquare
 import os
-import collections
 import requests
 
 from config import *
