@@ -415,6 +415,7 @@ class FitterTimeSeriesComparison(FitterTimeSeries,TableFiltering):
         self.cuts = cuts
         self.select = select
         self.multiseries_on = multiseries_on
+        self.format_date = format_date
 
         
     def fit_time_series_comparison(self,columns_analysis= None, start_date= None, end_date= None, n_previsions= 0,
