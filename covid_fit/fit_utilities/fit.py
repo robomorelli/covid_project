@@ -1,18 +1,18 @@
+#!/usr/local/bin/python3
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 from scipy.optimize import leastsq
 import datetime
-from matplotlib import pyplot
+# from matplotlib import pyplot
 from scipy.stats import chisquare
-import os
+# import os
 import sys
 
 sys.path.append('../..')
-from fit_utilities import *
-from fit_utilities.fit_functions.funcs import *
-from fit_utilities.fitter.fit import *
+from covid_fit.fit_functions.funcs import map_func
 
 ########################################
 def plotter(x_val, y_val, x_fit_val = None, y_fit_val = None):

@@ -1,3 +1,5 @@
+#!/usr/local/bin/python3
+
 import numpy as np
 
 def gompertz_func_fit(x,a,b,c):

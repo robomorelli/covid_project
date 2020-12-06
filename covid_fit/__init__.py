@@ -1,4 +1,5 @@
-# from .fitter import *
+from .fit_functions import *
+from .fit_utilities import *
 
 # # __init__.py Convenience store style
 # from .foo import foo_func
