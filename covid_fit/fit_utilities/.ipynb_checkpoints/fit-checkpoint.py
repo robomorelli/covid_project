@@ -44,10 +44,27 @@ def plotter(x_val, y_val, x_fit_val = None, y_fit_val = None):
 class TableFiltering():
     
     def __init__(self):
-        """ Initialization of the class table filtering: fimple filtering process
+        """ Initialization of the class table filtering: simple filtering process
+        Class object to filter a pandas dataframe
+        no params required for instanciations
         """
     def preprocessing(self, df, select = None, cuts = None, return_original=False):
-        '''apply filters'''
+        '''apply filters on categorical or continuos variables. Use "select" and "cuts" params 
+        dictionary to filter pandas dataframe columns. 
+        
+        param df: dataframe
+        param select: dictionary of selection to apply on categorical variables
+        param cuts: dictionary of cuts to apply on continuos variables
+        
+        type df: Pandas Dataframe
+        type select: dictionary
+        type cuts: dictionary
+        
+        Example: 
+        select = {categorical_var: [mod_1, mod_2]} To filter categorical variables
+        cuts = {continuos_variable_1: < 10 and > 30,
+                continuos_variable_2: <= 10 or > 20} To filter continuos variables
+        '''
         if select is not None:
             for k,v in select.items():
                 if isinstance(v, list):
@@ -96,6 +113,23 @@ class FitterValues():
         """
     
     def fit(self, model, x_val, y_val, n_previsions, p0=None, plot=True):
+        """ fit on x_val range and predict y_val on next n_prevision day:
+        
+        :params model: model to apply among [linear, exponential, logistic, logistig_der
+                                            gompertz, gompertz_der, logistic_gen, logistic_gen_der]
+        :params x_val: x range of the fit
+        :params y_val: y value to fit
+        :n_previsions: number of day to predict beyond the x_range
+        :p0: initia guess parameters
+        :plot: plot or not the results
+        
+        :type model: string
+        :type x_val: np.array
+        :type y_val: np.array
+        :n_previsions: int
+        :p0: list of int(float)
+        :plot: boolean
+        """
         
         if isinstance(x_val,list):
             pass
@@ -163,9 +197,24 @@ class FitterTimeSeries(FitterValues,TableFiltering):
         
         """ Initialization of the class fitter: Fit y values on x range
         :param df: dataframe
-        :param datetime_columns: column to set as index
-        :type df: pandas dataframe
+        :param datetime_columns: date column to set as index
+        :param format_date: how to format datetime_columns
+        :param select: dictionary of selection to apply on categorical variables
+        :param cuts: dictionary of cuts to apply on continuos variables
+        :param multiseries_on: columns that specify modalities for multiseries analysis
+        (example: 'denominazione_regione' >>> analyse for all different region)
+        
+        :type df: Pandas Dataframe
         :type datetime_columns: string
+        :type select: dictionary
+        :type cuts: dictionary
+        :type multiseries_on: string
+        
+        Example of select and cuts application: 
+        select = {categorical_var: [mod_1, mod_2]} To filter categorical variables
+        cuts = {continuos_variable_1: < 10 and > 30,
+                continuos_variable_2: <= 10 or > 20} To filter continuos variables
+        
         """
         if(isinstance(df,pd.DataFrame)):
             if (select is not None) | (cuts is not None):
@@ -178,6 +227,7 @@ class FitterTimeSeries(FitterValues,TableFiltering):
         self.cuts = cuts
         self.select = select
         self.multiseries_on = multiseries_on
+        self.format_date = format_date
         super().__init__()
         
     def __delattr__(self, name):
@@ -187,6 +237,29 @@ class FitterTimeSeries(FitterValues,TableFiltering):
     
     def fit_time_series(self,columns_analysis= None, start_date= None, end_date= None, n_previsions= 0,
                         p0 = None, model='linear', plot = True, semilog=False, show_test = True):
+        '''
+        :params columns_analysis: name of the column to analyse 
+        :params start_date: fit starting day
+        :params end_date: last day of fit
+        :n_previsions: number of day to predict beyond the x_range
+        :p0: initial guess parameters
+        :params model: model to apply among [linear, exponential, logistic, logistig_der
+                                            gompertz, gompertz_der, logistic_gen, logistic_gen_der]
+        :plot: plot or not the results
+        :semilog: apply log scale on y values
+        :show_test: if end_date < last date in dataframe columns decide to show or not the additional
+        values of the dataframe inthe plot
+        
+        :type columns_analysis: string or list fo string
+        :type start_date: string
+        :type end_date: string
+        :type n_previsions: int
+        :type p0: list of int(float)
+        :type model: string 
+        :type plot: boolean
+        :type semilog: boolean
+        :type show_test: boolean
+        '''
         
         if isinstance(model, str):
             pass
@@ -263,10 +336,10 @@ class FitterTimeSeries(FitterValues,TableFiltering):
                 dic['label'] = label
                 
                 if len(x_fit) >= len(x_0):
-                     dates_plot = [(dates[0] + datetime.timedelta(days=xi)).strftime("%Y-%m-%d")\
+                     dates_plot = [(dates[0] + datetime.timedelta(days=xi)).strftime(self.format_date)\
                          for xi in range(len(x_fit))]
                 elif len(x_fit) < len(x_0):
-                     dates_plot = [(dates0[0] + datetime.timedelta(days=xi)).strftime("%Y-%m-%d")\
+                     dates_plot = [(dates0[0] + datetime.timedelta(days=xi)).strftime(self.format_date)\
                          for xi in range(len(x_0))]
                             
                 dic['dates_plot'] = dates_plot
@@ -304,10 +377,29 @@ class FitterTimeSeriesComparison(FitterTimeSeries,TableFiltering):
                  , multiseries_on = False):
         
         """ Initialization of the class fitter: Fit y values on x range
+        Compare on different series different model (extension of FitterTimeSeries)
+        In this class "model" and "column_analysis" of fit_time_series_comparison method
+        are allowed to be a list
+        
         :param df: dataframe
-        :param datetime_columns: column to set as index
-        :type df: pandas dataframe
+        :param datetime_columns: date column to set as index
+        :param format_date: how to format datetime_columns
+        :param select: dictionary of selection to apply on categorical variables
+        :param cuts: dictionary of cuts to apply on continuos variables
+        :param multiseries_on: columns that specify modalities for multiseries analysis
+        (example: 'denominazione_regione' >>> analyse for all different region)
+        
+        :type df: Pandas Dataframe
         :type datetime_columns: string
+        :type select: dictionary
+        :type cuts: dictionary
+        :type multiseries_on: string
+        
+        Example of select and cuts application: 
+        select = {categorical_var: [mod_1, mod_2]} To filter categorical variables
+        cuts = {continuos_variable_1: < 10 and > 30,
+                continuos_variable_2: <= 10 or > 20} To filter continuos variables
+        
         """
 #         super().__init__(self, df)
         if(isinstance(df,pd.DataFrame)):
@@ -327,6 +419,30 @@ class FitterTimeSeriesComparison(FitterTimeSeries,TableFiltering):
         
     def fit_time_series_comparison(self,columns_analysis= None, start_date= None, end_date= None, n_previsions= 0,
                         p0 = None, model='linear', plot = True, semilog=False, show_test = True):
+        
+        '''
+        :params columns_analysis: name of the column to analyse 
+        :params start_date: fit starting day
+        :params end_date: last day of fit
+        :n_previsions: number of day to predict beyond the x_range
+        :p0: initial guess parameters
+        :params model: model to apply among [linear, exponential, logistic, logistig_der
+                                            gompertz, gompertz_der, logistic_gen, logistic_gen_der]
+        :plot: plot or not the results
+        :semilog: apply log scale on y values
+        :show_test: if end_date < last date in dataframe columns decide to show or not the additional
+        values of the dataframe inthe plot
+        
+        :type columns_analysis: string or list fo string
+        :type start_date: string
+        :type end_date: string
+        :type n_previsions: int
+        :type p0: list of int(float)
+        :type model: string or list of strinf
+        :type plot: boolean
+        :type semilog: boolean
+        :type show_test: boolean
+        '''
         
         if isinstance(model, list):
             pass
